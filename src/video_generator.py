@@ -1,0 +1,252 @@
+"""
+動画生成モジュール
+音楽ファイル（mp3）と画像を組み合わせて動画を生成する
+"""
+
+import logging
+import subprocess
+from pathlib import Path
+from typing import Optional
+import shutil
+
+logger = logging.getLogger(__name__)
+
+
+class VideoGenerator:
+    """動画生成クラス"""
+    
+    def __init__(self):
+        """初期化"""
+        # FFmpegの存在確認
+        if not self._check_ffmpeg():
+            raise RuntimeError(
+                "FFmpegがインストールされていません。\n"
+                "インストール方法:\n"
+                "  Ubuntu/Debian: sudo apt-get install ffmpeg\n"
+                "  macOS: brew install ffmpeg\n"
+                "  Windows: https://ffmpeg.org/download.html"
+            )
+        
+        logger.info("🎬 動画生成システム初期化完了")
+    
+    def _check_ffmpeg(self) -> bool:
+        """
+        FFmpegがインストールされているか確認
+        
+        Returns:
+            bool: インストールされている場合True
+        """
+        return shutil.which('ffmpeg') is not None
+    
+    def generate(
+        self,
+        audio_path: str,
+        image_path: str,
+        output_path: str,
+        fps: int = 30,
+        video_codec: str = "libx264",
+        audio_codec: str = "aac",
+        audio_bitrate: str = "192k",
+        preset: str = "medium",
+        crf: int = 23
+    ) -> str:
+        """
+        動画を生成
+        
+        Args:
+            audio_path: 音楽ファイルパス（mp3など）
+            image_path: 画像ファイルパス（jpg, pngなど）
+            output_path: 出力動画パス（mp4）
+            fps: フレームレート
+            video_codec: 動画コーデック
+            audio_codec: 音声コーデック
+            audio_bitrate: 音声ビットレート
+            preset: エンコードプリセット（ultrafast, fast, medium, slow, veryslow）
+            crf: 品質設定（0-51、低いほど高品質、推奨18-28）
+            
+        Returns:
+            str: 生成された動画のパス
+        """
+        audio_path = Path(audio_path)
+        image_path = Path(image_path)
+        output_path = Path(output_path)
+        
+        # ファイル存在確認
+        if not audio_path.exists():
+            raise FileNotFoundError(f"音楽ファイルが見つかりません: {audio_path}")
+        
+        if not image_path.exists():
+            raise FileNotFoundError(f"画像ファイルが見つかりません: {image_path}")
+        
+        # 出力ディレクトリ作成
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        logger.info(f"🎬 動画生成開始")
+        logger.info(f"   音楽: {audio_path.name}")
+        logger.info(f"   画像: {image_path.name}")
+        logger.info(f"   出力: {output_path.name}")
+        
+        # FFmpegコマンドを構築
+        command = [
+            'ffmpeg',
+            '-y',  # 上書き確認なし
+            '-loop', '1',  # 画像をループ
+            '-i', str(image_path),  # 入力画像
+            '-i', str(audio_path),  # 入力音声
+            '-c:v', video_codec,  # 動画コーデック
+            '-c:a', audio_codec,  # 音声コーデック
+            '-b:a', audio_bitrate,  # 音声ビットレート
+            '-preset', preset,  # エンコードプリセット
+            '-crf', str(crf),  # 品質
+            '-tune', 'stillimage',  # 静止画用最適化
+            '-shortest',  # 音声の長さに合わせる
+            '-pix_fmt', 'yuv420p',  # 互換性のあるピクセルフォーマット
+            '-r', str(fps),  # フレームレート
+            str(output_path)
+        ]
+        
+        try:
+            # FFmpegを実行
+            result = subprocess.run(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=True
+            )
+            
+            logger.info(f"✅ 動画生成完了: {output_path}")
+            logger.info(f"   ファイルサイズ: {output_path.stat().st_size / 1024 / 1024:.2f} MB")
+            
+            return str(output_path)
+            
+        except subprocess.CalledProcessError as e:
+            logger.error(f"❌ FFmpegエラー: {e.stderr}")
+            raise RuntimeError(f"動画生成に失敗しました: {e.stderr}")
+    
+    def generate_with_lyrics(
+        self,
+        audio_path: str,
+        image_path: str,
+        lyrics_path: str,
+        output_path: str,
+        **kwargs
+    ) -> str:
+        """
+        歌詞表示付き動画を生成（将来実装）
+        
+        現在は通常の動画生成と同じ動作
+        将来的には歌詞をオーバーレイ表示する機能を追加予定
+        
+        Args:
+            audio_path: 音楽ファイルパス
+            image_path: 画像ファイルパス
+            lyrics_path: 歌詞ファイルパス
+            output_path: 出力動画パス
+            **kwargs: その他のオプション
+            
+        Returns:
+            str: 生成された動画のパス
+        """
+        logger.info("📝 歌詞表示機能は将来実装予定です")
+        logger.info("📝 現在は通常の動画を生成します")
+        
+        # TODO: 歌詞をオーバーレイ表示する機能を実装
+        # - 歌詞ファイルを解析
+        # - FFmpegのdrawtext フィルターで歌詞を表示
+        # - タイミングに合わせてテキストを切り替え
+        
+        return self.generate(
+            audio_path=audio_path,
+            image_path=image_path,
+            output_path=output_path,
+            **kwargs
+        )
+    
+    def get_video_info(self, video_path: str) -> dict:
+        """
+        動画の情報を取得
+        
+        Args:
+            video_path: 動画ファイルパス
+            
+        Returns:
+            dict: 動画情報
+        """
+        video_path = Path(video_path)
+        
+        if not video_path.exists():
+            raise FileNotFoundError(f"動画ファイルが見つかりません: {video_path}")
+        
+        command = [
+            'ffprobe',
+            '-v', 'quiet',
+            '-print_format', 'json',
+            '-show_format',
+            '-show_streams',
+            str(video_path)
+        ]
+        
+        try:
+            result = subprocess.run(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=True
+            )
+            
+            import json
+            return json.loads(result.stdout)
+            
+        except subprocess.CalledProcessError as e:
+            logger.error(f"❌ ffprobeエラー: {e.stderr}")
+            return {}
+
+
+def generate_video(
+    audio_path: str,
+    image_path: str,
+    output_path: str,
+    **kwargs
+) -> str:
+    """
+    動画生成の便利関数
+    
+    Args:
+        audio_path: 音楽ファイルパス
+        image_path: 画像ファイルパス
+        output_path: 出力動画パス
+        **kwargs: その他のオプション
+        
+    Returns:
+        str: 生成された動画のパス
+    """
+    generator = VideoGenerator()
+    return generator.generate(
+        audio_path=audio_path,
+        image_path=image_path,
+        output_path=output_path,
+        **kwargs
+    )
+
+
+if __name__ == "__main__":
+    # テスト用
+    logging.basicConfig(level=logging.INFO)
+    
+    print("🎬 動画生成モジュール")
+    print("FFmpegの確認...")
+    
+    try:
+        generator = VideoGenerator()
+        print("✅ FFmpegが利用可能です")
+        print("\n使用方法:")
+        print("  from src.video_generator import generate_video")
+        print("  generate_video(")
+        print("      audio_path='music.mp3',")
+        print("      image_path='thumbnail.jpg',")
+        print("      output_path='video.mp4'")
+        print("  )")
+    except RuntimeError as e:
+        print(f"❌ {e}")

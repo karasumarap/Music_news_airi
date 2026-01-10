@@ -1,0 +1,195 @@
+# 音楽ニュースAI 〜妹アイドル「あいり」が届ける世界〜
+
+ニュースを「音楽」という形で届けることで、難しいニュースも身近に感じられるようにするプロジェクト。
+
+## 🎯 プロジェクトの目的
+
+- ニュースを音楽にして、若い世代にも伝わりやすくする
+- AIアイドル「あいり」が、妹のような視点で一緒に考える
+- 事実をベースに、意味と影響を構造化して伝える
+
+## ✨ 特徴
+
+- **正確性重視**: ニュースの事実を歪めない
+- **妹キャラの人格**: 断定しない、煽らない、一緒に考える
+- **4構造化**: Fact / Meaning / Impact / Question
+- **将来の拡張性**: 音楽生成・動画生成・投稿自動化を見越した設計
+
+## 📁 プロジェクト構成
+
+```
+Music_news_airi/
+├── README.md              # このファイル
+├── docs/                  # ドキュメント
+│   ├── 00_philosophy.md   # プロジェクト思想
+│   ├── 01_character.md    # キャラクター設定
+│   ├── 02_news_policy.md  # ニュース取扱ポリシー
+│   ├── 03_lyrics_rules.md # 歌詞生成ルール
+│   ├── 04_architecture.md # システムアーキテクチャ
+│   └── 05_todo.md         # TODO
+├── src/                   # ソースコード
+│   ├── config.py          # 設定
+│   ├── utils.py           # ユーティリティ
+│   ├── news_evaluator.py  # ニュース評価
+│   ├── structure_converter.py  # 4構造変換
+│   ├── lyrics_generator.py     # 歌詞生成
+│   ├── music_prompt_generator.py  # 音楽プロンプト生成
+│   └── suno_client.py     # Suno AI連携
+├── input/                 # 入力データ
+│   └── sample_news.json   # サンプルニュース
+├── output/                # 出力データ
+│   ├── structured_news.json  # 構造化されたニュース
+│   ├── lyrics.txt         # 生成された歌詞
+│   └── music.mp3          # 生成された音楽
+├── run.py                 # メイン実行スクリプト
+├── requirements.txt       # Python依存パッケージ
+└── .env.example           # 環境変数サンプル
+```
+
+## 🚀 使い方
+
+### 1. セットアップ
+
+```bash
+# 依存パッケージをインストール
+pip install -r requirements.txt
+
+# 環境変数を設定（音楽生成を使う場合）
+cp .env.example .env
+# .env ファイルを編集してSUNO_API_KEYを設定
+```
+
+### 2. 環境設定（音楽生成を使う場合）
+
+```bash
+# .env.sample をコピー
+cp .env.sample .env
+
+# .env を編集してAPIキーを設定
+# SUNO_API_KEY=your_actual_api_key
+# MUSIC_GENERATION_ENABLED=true
+```
+
+### 3. 実行
+
+```bash
+python run.py
+```
+
+**モックモード（APIキーなし）でも動作します！**  
+歌詞生成まではAPIキー不要で実行できます。
+
+### 4. 入力
+
+`input/sample_news.json` にニュースデータを配置します。
+
+**フォーマット:**
+```json
+{
+  "title": "ニュースタイトル",
+  "content": "ニュース本文",
+  "source": "情報源",
+  "date": "2026-01-10",
+  "url": "https://example.com/news",
+  "category": "カテゴリ"
+}
+```
+
+### 3. 出力
+
+- `output/structured_news.json`: 構造化されたニュース（Fact/Meaning/Impact/Question）+ 音楽生成結果
+- `output/lyrics.txt`: 生成された歌詞
+- `output/music.mp3`: 生成された音楽（本番モードのみ、開発モードではモックファイル）
+- `output/music_*.mp3`: 生成された音楽（Suno AI有効時）
+- `output/music_mock.txt`: モック設定ファイル（モード時）
+
+## 📋 現在の実装状況
+
+### ✅ Phase 1: 最小完全プロトタイプ（完了）
+
+- [x] ニュース評価・選別
+- [x] 4構造への変換
+- [x] 歌詞生成
+- [x] JSON/テキスト出力
+
+### ✅ Phase 2: 音楽生成（完了）
+
+- [x] Suno AI連携
+- [x] プロンプト生成ロジック
+- [x] 音楽ファイルダウンロード
+- [x] モックモード実装
+
+### 🔜 Phase 3: 動画生成（未実装）
+
+- [ ] キャラクター画像生成
+- [ ] リップシンク
+- [ ] MV自動生成
+
+### 🔜 Phase 4: 投稿自動化（未実装）
+
+- [ ] YouTube自動投稿
+- [ ] Twitter/X連携
+
+## 🎤 キャラクター設定
+
+**名前**: あいり (Airi)  
+**年齢**: 16歳  
+**性格**: 明るく前向き、好奇心旺盛  
+**口調**: 妹っぽく、でも真剣に
+
+**特徴**:
+- 断定しない（「〜かもしれない」「〜だと思うの」）
+- 煽らない
+- 一緒に考える姿勢（「一緒に考えよう」）
+
+## 🎵 歌詞の構成
+
+```
+[Intro]          # 導入
+[Verse 1]        # Fact - 何が起きたか
+[Pre-Chorus]     # Meaning - 何を意味するか
+[Chorus]         # Impact - 誰にどう影響するか
+[Verse 2]        # 別の側面からのFact
+[Pre-Chorus]     # Meaning（繰り返し）
+[Chorus]         # Impact（繰り返し）
+[Bridge]         # Question - 私たちはどう向き合う？
+[Chorus]         # Impact（繰り返し）
+[Outro]          # 締めくくり
+```
+
+## 📖 ドキュメント
+
+詳しい設計思想やルールは `docs/` フォルダを参照してください：
+
+- [00_philosophy.md](docs/00_philosophy.md) - プロジェクト思想
+- [01_character.md](docs/01_character.md) - キャラクター設定
+- [02_news_policy.md](docs/02_news_policy.md) - ニュース取扱ポリシー
+- [03_lyrics_rules.md](docs/03_lyrics_rules.md) - 歌詞生成ルール
+- [04_architecture.md](docs/04_architecture.md) - システムアーキテクチャ
+- [05_todo.md](docs/05_todo.md) - TODO
+
+## 🔒 重要な制約
+
+1. **正確性 ＞ 面白さ**: ニュースの事実を歪めない
+2. **妹キャラの人格を守る**: 断定しない、煽らない
+3. **構造化された情報提供**: Fact/Meaning/Impact/Question
+4. **将来の拡張性**: 音楽生成・動画生成を見越した設計
+
+## 🛠️ 開発方針
+
+- Pythonで実装
+- CLIで1コマンド実行
+- APIキー不要でも動く（モック実装）
+- 中間成果物はJSONで保持
+
+## 📝 ライセンス
+
+このプロジェクトは個人プロジェクトです。
+
+## 👤 作者
+
+karasumarap
+
+---
+
+**一緒に、未来を作ろう 💫**
