@@ -297,6 +297,76 @@ class YouTubeUploader:
         except HttpError as e:
             logger.error(f"❌ チャンネル情報取得エラー: {e}")
             return None
+    
+    def upload_shorts(
+        self,
+        video_paths: list,
+        base_title: str,
+        base_description: str,
+        tags: Optional[list] = None,
+        category_id: str = "22",
+        privacy_status: str = "public",
+        thumbnail_path: Optional[str] = None
+    ) -> list:
+        """
+        複数のYouTubeショート動画をアップロード
+        
+        Args:
+            video_paths: 動画ファイルパスのリスト
+            base_title: ベースタイトル（Part番号が自動追加される）
+            base_description: 動画説明
+            tags: タグのリスト
+            category_id: カテゴリID
+            privacy_status: 公開設定
+            thumbnail_path: サムネイル画像パス（オプション）
+            
+        Returns:
+            list: アップロード結果のリスト
+        """
+        if not self.youtube:
+            logger.error("❌ 認証されていません。先に authenticate() を実行してください")
+            return []
+        
+        logger.info(f"📤 YouTubeショート一括アップロード開始: {len(video_paths)}個")
+        
+        results = []
+        total = len(video_paths)
+        
+        for i, video_path in enumerate(video_paths, 1):
+            # Part番号をタイトルに追加
+            if total > 1:
+                title = f"{base_title} [Part {i}/{total}] #Shorts"
+            else:
+                title = f"{base_title} #Shorts"
+            
+            # ショート用の説明にハッシュタグを追加
+            description = f"{base_description}\n\n#Shorts #YouTubeShorts"
+            
+            logger.info(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            logger.info(f"Part {i}/{total}: {Path(video_path).name}")
+            logger.info(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            
+            result = self.upload(
+                video_path=video_path,
+                title=title,
+                description=description,
+                tags=tags,
+                category_id=category_id,
+                privacy_status=privacy_status,
+                thumbnail_path=thumbnail_path
+            )
+            
+            if result:
+                results.append(result)
+                logger.info(f"✅ Part {i}/{total} アップロード完了")
+            else:
+                logger.error(f"❌ Part {i}/{total} アップロード失敗")
+        
+        logger.info(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        logger.info(f"✅ 一括アップロード完了: {len(results)}/{total}個成功")
+        logger.info(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        
+        return results
 
 
 def upload_to_youtube(

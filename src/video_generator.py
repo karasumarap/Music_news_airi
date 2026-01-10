@@ -202,6 +202,151 @@ class VideoGenerator:
         except subprocess.CalledProcessError as e:
             logger.error(f"❌ ffprobeエラー: {e.stderr}")
             return {}
+    
+    def get_audio_duration(self, audio_path: str) -> float:
+        """
+        音声ファイルの長さを取得（秒）
+        
+        Args:
+            audio_path: 音声ファイルパス
+            
+        Returns:
+            float: 長さ（秒）
+        """
+        audio_path = Path(audio_path)
+        
+        if not audio_path.exists():
+            raise FileNotFoundError(f"音声ファイルが見つかりません: {audio_path}")
+        
+        command = [
+            'ffprobe',
+            '-v', 'quiet',
+            '-print_format', 'json',
+            '-show_format',
+            str(audio_path)
+        ]
+        
+        try:
+            result = subprocess.run(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=True
+            )
+            
+            import json
+            info = json.loads(result.stdout)
+            duration = float(info['format']['duration'])
+            return duration
+            
+        except (subprocess.CalledProcessError, KeyError, ValueError) as e:
+            logger.error(f"❌ 音声長さ取得エラー: {e}")
+            return 0.0
+    
+    def generate_shorts(
+        self,
+        audio_path: str,
+        image_path: str,
+        output_dir: str,
+        max_duration: int = 30,
+        width: int = 1080,
+        height: int = 1920,
+        **kwargs
+    ) -> list:
+        """
+        YouTubeショート用に動画を分割生成
+        
+        Args:
+            audio_path: 音楽ファイルパス
+            image_path: 画像ファイルパス
+            output_dir: 出力ディレクトリ
+            max_duration: 最大長さ（秒）
+            width: 動画幅（ショートは縦型: 1080推奨）
+            height: 動画高さ（ショートは縦型: 1920推奨）
+            **kwargs: その他のオプション
+            
+        Returns:
+            list: 生成された動画パスのリスト
+        """
+        audio_path = Path(audio_path)
+        image_path = Path(image_path)
+        output_dir = Path(output_dir)
+        
+        # ファイル存在確認
+        if not audio_path.exists():
+            raise FileNotFoundError(f"音楽ファイルが見つかりません: {audio_path}")
+        
+        if not image_path.exists():
+            raise FileNotFoundError(f"画像ファイルが見つかりません: {image_path}")
+        
+        # 出力ディレクトリ作成
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 音声の長さを取得
+        duration = self.get_audio_duration(str(audio_path))
+        logger.info(f"🎬 YouTubeショート生成開始")
+        logger.info(f"   音楽長さ: {duration:.1f}秒")
+        logger.info(f"   最大長さ: {max_duration}秒")
+        
+        # 分割数を計算
+        import math
+        num_parts = math.ceil(duration / max_duration)
+        logger.info(f"   分割数: {num_parts}個")
+        
+        generated_videos = []
+        
+        for i in range(num_parts):
+            start_time = i * max_duration
+            # 最後のパートの長さを調整
+            segment_duration = min(max_duration, duration - start_time)
+            
+            output_path = output_dir / f"short_{i+1:02d}.mp4"
+            
+            logger.info(f"📹 Part {i+1}/{num_parts}: {start_time:.1f}秒 - {start_time + segment_duration:.1f}秒")
+            
+            # FFmpegコマンドを構築（縦型ショート用）
+            command = [
+                'ffmpeg',
+                '-y',  # 上書き確認なし
+                '-loop', '1',  # 画像をループ
+                '-i', str(image_path),  # 入力画像
+                '-ss', str(start_time),  # 開始時間
+                '-t', str(segment_duration),  # 長さ
+                '-i', str(audio_path),  # 入力音声
+                '-vf', f'scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2',  # 縦型リサイズとパディング
+                '-c:v', kwargs.get('video_codec', 'libx264'),
+                '-c:a', kwargs.get('audio_codec', 'aac'),
+                '-b:a', kwargs.get('audio_bitrate', '192k'),
+                '-preset', kwargs.get('preset', 'medium'),
+                '-crf', str(kwargs.get('crf', 23)),
+                '-tune', 'stillimage',
+                '-shortest',  # 音声の長さに合わせる
+                '-pix_fmt', 'yuv420p',
+                '-r', str(kwargs.get('fps', 30)),
+                '-movflags', '+faststart',  # Web再生最適化（moov atom を先頭に配置）
+                str(output_path)
+            ]
+            
+            try:
+                result = subprocess.run(
+                    command,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    check=True
+                )
+                
+                logger.info(f"   ✅ 生成完了: {output_path.name}")
+                logger.info(f"      ファイルサイズ: {output_path.stat().st_size / 1024 / 1024:.2f} MB")
+                generated_videos.append(str(output_path))
+                
+            except subprocess.CalledProcessError as e:
+                logger.error(f"   ❌ FFmpegエラー: {e.stderr}")
+                raise RuntimeError(f"ショート動画生成に失敗しました: {e.stderr}")
+        
+        logger.info(f"✅ YouTubeショート生成完了: {len(generated_videos)}個")
+        return generated_videos
 
 
 def generate_video(

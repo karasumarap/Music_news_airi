@@ -1,7 +1,7 @@
 {
   "session_id": "20260110_075447",
   "created_at": "2026-01-10T07:54:47.293436",
-  "status": "youtube_uploaded",
+  "status": "shorts_uploaded",
   "news_title": "日本政府、再生可能エネルギー目標を40%に引き上げ",
   "news_source": "経済産業省公式発表",
   "news_date": "2026-01-09",
@@ -13,7 +13,7 @@
   "thumbnail_file": "thumbnail.jpg",
   "video_file": "video.mp4",
   "youtube_info_file": "youtube_info.json",
-  "youtube_video_id": "qlHvhjm9tX0",
-  "youtube_url": "https://www.youtube.com/watch?v=qlHvhjm9tX0",
+  "youtube_video_id": "HLz03YBcJ3M",
+  "youtube_url": "https://www.youtube.com/watch?v=HLz03YBcJ3M",
   "youtube_uploaded_at": null
 }

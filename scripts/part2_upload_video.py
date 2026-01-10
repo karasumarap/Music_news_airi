@@ -153,7 +153,7 @@ def main():
         
         # ステップ4: YouTubeアップロード
         logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-        logger.info("ステップ4: YouTubeアップロード")
+        logger.info("ステップ4: YouTubeアップロード（通常動画）")
         logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         
         try:
@@ -200,13 +200,13 @@ def main():
 #音楽ニュース #AI #ニュース #あいり
 """
             
-            # アップロード
+            # 通常動画をアップロード
             result = uploader.upload(
                 video_path=str(video_file),
                 title=video_title,
                 description=video_description,
                 tags=["音楽ニュース", "AI", "ニュース", "あいり", news_title[:30]],
-                privacy_status="public",  # デフォルトは公開
+                privacy_status="public",
                 thumbnail_path=str(thumbnail_file) if thumbnail_file and thumbnail_file.exists() else None
             )
             
@@ -227,20 +227,171 @@ def main():
                     youtube_video_id=result['video_id'],
                     youtube_url=result['url']
                 )
+            else:
+                logger.error("❌ YouTubeアップロードに失敗しました")
+                sys.exit(1)
                 
-                # 結果表示
-                logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-                logger.info("✅ Part 2 完了！")
-                logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        except Exception as e:
+            logger.error(f"❌ YouTubeアップロードエラー: {e}", exc_info=True)
+            sys.exit(1)
+        
+        # ステップ5: YouTubeショート生成とアップロード
+        logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        logger.info("ステップ5: YouTubeショート生成＆アップロード")
+        logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        
+        try:
+            from src.video_generator import VideoGenerator
+            
+            # ショートディレクトリを作成
+            shorts_dir = session_dir / "shorts"
+            shorts_dir.mkdir(exist_ok=True)
+            
+            # VideoGeneratorを初期化
+            video_gen = VideoGenerator()
+            
+            # 音声の長さを確認
+            duration = video_gen.get_audio_duration(str(music_file))
+            logger.info(f"🎵 音楽の長さ: {duration:.1f}秒")
+            
+            if duration > 30:
+                logger.info("📹 30秒以上のため、複数のショート動画を生成します")
                 
-                print(f"""
+                # YouTubeショート動画を生成（30秒ごとに分割）
+                short_videos = video_gen.generate_shorts(
+                    audio_path=str(music_file),
+                    image_path=str(thumbnail_file),
+                    output_dir=str(shorts_dir),
+                    max_duration=30,  # 30秒以下
+                    width=1080,       # 縦型
+                    height=1920
+                )
+                
+                logger.info(f"✅ ショート動画生成完了: {len(short_videos)}個")
+                
+                # ショートをアップロード
+                short_title = f"【音楽ニュース】{news_title}"
+                short_description = f"""【音楽ニュースAI - あいり】YouTubeショート版
+{news_date}
+
+{fact_summary}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎵 音楽ニュースAI
+ニュースを音楽にして、未来を一緒に考えよう
+
+フル版はこちら: {result['url']}
+
+#音楽ニュース #AI #ニュース #あいり #Shorts
+"""
+                
+                shorts_results = uploader.upload_shorts(
+                    video_paths=short_videos,
+                    base_title=short_title,
+                    base_description=short_description,
+                    tags=["音楽ニュース", "AI", "ニュース", "あいり", "Shorts", news_title[:30]],
+                    privacy_status="public",
+                    thumbnail_path=str(thumbnail_file) if thumbnail_file and thumbnail_file.exists() else None
+                )
+                
+                if shorts_results:
+                    logger.info(f"✅ YouTubeショートアップロード完了: {len(shorts_results)}個")
+                    
+                    # ショート情報をJSONで保存
+                    youtube_shorts_info_file = session_dir / "youtube_shorts_info.json"
+                    save_json(str(youtube_shorts_info_file), shorts_results)
+                    
+                    # セッション更新
+                    session = session_manager.update_session(
+                        session_id,
+                        status="shorts_uploaded",
+                        youtube_shorts_info_file="youtube_shorts_info.json"
+                    )
+                else:
+                    logger.warning("⚠️ YouTubeショートのアップロードに失敗しましたが、処理を続行します")
+            else:
+                logger.info(f"ℹ️ 音楽が30秒以下({duration:.1f}秒)のため、ショートは1個のみ生成します")
+                
+                # 1個だけショート動画を生成
+                short_videos = video_gen.generate_shorts(
+                    audio_path=str(music_file),
+                    image_path=str(thumbnail_file),
+                    output_dir=str(shorts_dir),
+                    max_duration=60,  # 60秒以下（ショートの上限）
+                    width=1080,
+                    height=1920
+                )
+                
+                logger.info(f"✅ ショート動画生成完了: {len(short_videos)}個")
+                
+                # ショートをアップロード
+                short_title = f"【音楽ニュース】{news_title}"
+                short_description = f"""【音楽ニュースAI - あいり】YouTubeショート版
+{news_date}
+
+{fact_summary}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎵 音楽ニュースAI
+ニュースを音楽にして、未来を一緒に考えよう
+
+フル版はこちら: {result['url']}
+
+#音楽ニュース #AI #ニュース #あいり #Shorts
+"""
+                
+                shorts_results = uploader.upload_shorts(
+                    video_paths=short_videos,
+                    base_title=short_title,
+                    base_description=short_description,
+                    tags=["音楽ニュース", "AI", "ニュース", "あいり", "Shorts", news_title[:30]],
+                    privacy_status="public",
+                    thumbnail_path=str(thumbnail_file) if thumbnail_file and thumbnail_file.exists() else None
+                )
+                
+                if shorts_results:
+                    logger.info(f"✅ YouTubeショートアップロード完了: {len(shorts_results)}個")
+                    
+                    # ショート情報をJSONで保存
+                    youtube_shorts_info_file = session_dir / "youtube_shorts_info.json"
+                    save_json(str(youtube_shorts_info_file), shorts_results)
+                    
+                    # セッション更新
+                    session = session_manager.update_session(
+                        session_id,
+                        status="shorts_uploaded",
+                        youtube_shorts_info_file="youtube_shorts_info.json"
+                    )
+                else:
+                    logger.warning("⚠️ YouTubeショートのアップロードに失敗しましたが、処理を続行します")
+                
+        except Exception as e:
+            logger.error(f"❌ YouTubeショート生成エラー: {e}", exc_info=True)
+            logger.warning("⚠️ ショート生成に失敗しましたが、処理を続行します")
+        
+        # 結果表示
+        logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        logger.info("✅ Part 2 完了！")
+        logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        
+        # ショート情報を含めた結果表示
+        shorts_info_text = ""
+        if 'youtube_shorts_info.json' in str(session_dir):
+            youtube_shorts_info_file = session_dir / "youtube_shorts_info.json"
+            if youtube_shorts_info_file.exists():
+                shorts_data = load_json(str(youtube_shorts_info_file))
+                shorts_info_text = f"\n\nYouTubeショート動画:\n"
+                for i, short_info in enumerate(shorts_data, 1):
+                    shorts_info_text += f"  Part {i}: {short_info['url']}\n"
+        
+        print(f"""
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ✅ 完了！
 
 YouTube動画情報:
   タイトル: {video_title}
   URL: {result['url']}
-  公開設定: {result['privacy_status']}
+  公開設定: {result['privacy_status']}{shorts_info_text}
 
 ファイル:
   動画: {video_file}
@@ -250,13 +401,6 @@ YouTube動画情報:
 セッション: {session_id}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """)
-            else:
-                logger.error("❌ YouTubeアップロードに失敗しました")
-                sys.exit(1)
-                
-        except Exception as e:
-            logger.error(f"❌ YouTubeアップロードエラー: {e}", exc_info=True)
-            sys.exit(1)
         
     except FileNotFoundError as e:
         logger.error(f"❌ {e}")
