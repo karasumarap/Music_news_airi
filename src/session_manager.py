@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, fields
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ class Session:
     """セッション情報を保持するデータクラス"""
     session_id: str
     created_at: str
-    status: str  # lyrics_generated | music_uploaded | video_generated | youtube_uploaded
+    status: str  # lyrics_generated | music_uploaded | video_generated | youtube_uploaded | shorts_uploaded | social_posted
     news_title: str
     news_source: str
     news_date: str
@@ -32,11 +32,18 @@ class Session:
     thumbnail_file: Optional[str] = None
     video_file: Optional[str] = None
     youtube_info_file: Optional[str] = None
+    youtube_shorts_info_file: Optional[str] = None
     
     # YouTube情報
     youtube_video_id: Optional[str] = None
     youtube_url: Optional[str] = None
     youtube_uploaded_at: Optional[str] = None
+
+    # Social posts
+    x_post_id: Optional[str] = None
+    x_post_url: Optional[str] = None
+    tiktok_video_id: Optional[str] = None
+    tiktok_share_url: Optional[str] = None
     
     def to_dict(self) -> Dict:
         """辞書形式に変換"""
@@ -45,7 +52,23 @@ class Session:
     @classmethod
     def from_dict(cls, data: Dict) -> 'Session':
         """辞書から復元"""
-        return cls(**data)
+        field_names = {f.name for f in fields(cls)}
+
+        normalized = {}
+        for name in field_names:
+            if name in data:
+                normalized[name] = data[name]
+            else:
+                if name in {"session_id", "created_at", "status", "news_title", "news_source", "news_date"}:
+                    normalized[name] = data.get(name, "")
+                else:
+                    normalized[name] = data.get(name)  # None by default
+
+        # ステータスのデフォルト
+        if not normalized.get("status"):
+            normalized["status"] = "created"
+
+        return cls(**normalized)
 
 
 class SessionManager:
@@ -287,7 +310,9 @@ def format_session_info(session: Session) -> str:
         "lyrics_generated": "📝",
         "music_uploaded": "🎵",
         "video_generated": "🎬",
-        "youtube_uploaded": "✅"
+        "youtube_uploaded": "✅",
+        "shorts_uploaded": "[Shorts]",
+        "social_posted": "[Social]"
     }
     
     emoji = status_emoji.get(session.status, "❓")
@@ -305,6 +330,12 @@ def format_session_info(session: Session) -> str:
     
     if session.youtube_url:
         lines.append(f"   YouTube: {session.youtube_url}")
+
+    if session.x_post_url:
+        lines.append(f"   X: {session.x_post_url}")
+
+    if session.tiktok_share_url:
+        lines.append(f"   TikTok: {session.tiktok_share_url}")
     
     return "\n".join(lines)
 
@@ -350,6 +381,30 @@ python scripts/part2_upload_video.py {session.session_id}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ✅ 完了！
 YouTube URL: {session.youtube_url}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+
+    elif session.status == "shorts_uploaded":
+        return f"""
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ 完了！
+YouTube URL: {session.youtube_url}
+ショート: shorts ディレクトリを確認してください
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+
+    elif session.status == "social_posted":
+        socials = []
+        if session.x_post_url:
+            socials.append(f"X: {session.x_post_url}")
+        if session.tiktok_share_url:
+            socials.append(f"TikTok: {session.tiktok_share_url}")
+        socials_text = "\n".join(socials)
+        return f"""
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ 完了！
+YouTube URL: {session.youtube_url}
+{socials_text}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
     

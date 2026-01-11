@@ -17,6 +17,7 @@ from src.thumbnail_generator import generate_thumbnail
 from src.video_generator import generate_video, VideoGenerator
 from src.subtitle_generator import SubtitleGenerator
 from src.youtube_uploader import YouTubeUploader
+from src.social_poster import XPoster, TikTokPoster
 from src.utils import load_json, save_json
 
 # ロガーの設定
@@ -308,6 +309,8 @@ def main():
         logger.info("ステップ6: YouTubeショート生成＆アップロード")
         logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         
+        short_videos = []
+
         try:
             # ショートディレクトリを作成
             shorts_dir = session_dir / "shorts"
@@ -430,6 +433,64 @@ def main():
         except Exception as e:
             logger.error(f"❌ YouTubeショート生成エラー: {e}", exc_info=True)
             logger.warning("⚠️ ショート生成に失敗しましたが、処理を続行します")
+
+        # ステップ7: ソーシャル投稿 (X / TikTok)
+        logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        logger.info("ステップ7: X / TikTok 自動投稿")
+        logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+        x_result = None
+        tiktok_result = None
+        short_clip_path = Path(short_videos[0]) if short_videos else None
+
+        x_caption_lines = [
+            f"【音楽ニュース】{news_title}",
+            fact_summary,
+            result['url'] if result else None,
+            "#音楽ニュース #AI #ニュース #あいり",
+        ]
+        x_caption = "\n".join([line for line in x_caption_lines if line])
+
+        tiktok_caption = f"【音楽ニュース】{news_title}"
+
+        # X投稿
+        try:
+            x_poster = XPoster.from_env()
+            if x_poster.is_configured():
+                media_for_x = short_clip_path if short_clip_path and short_clip_path.exists() else thumbnail_file
+                x_result = x_poster.post(text=x_caption, media_path=media_for_x)
+                if x_result:
+                    session = session_manager.update_session(
+                        session_id,
+                        x_post_id=x_result.get('id'),
+                        x_post_url=x_result.get('url')
+                    )
+            else:
+                logger.info("X投稿はスキップ（環境変数未設定）")
+        except Exception as e:
+            logger.error(f"❌ X投稿エラー: {e}", exc_info=True)
+
+        # TikTok投稿（YouTubeショートと同じ動画を使用）
+        try:
+            tiktok_poster = TikTokPoster.from_env()
+            if tiktok_poster.is_configured():
+                if short_clip_path and short_clip_path.exists():
+                    tiktok_result = tiktok_poster.post(video_path=short_clip_path, caption=tiktok_caption)
+                    if tiktok_result:
+                        session = session_manager.update_session(
+                            session_id,
+                            tiktok_video_id=tiktok_result.get('video_id'),
+                            tiktok_share_url=tiktok_result.get('share_url')
+                        )
+                else:
+                    logger.warning("TikTok投稿用のショート動画がありません。ショート生成を確認してください")
+            else:
+                logger.info("TikTok投稿はスキップ（環境変数未設定）")
+        except Exception as e:
+            logger.error(f"❌ TikTok投稿エラー: {e}", exc_info=True)
+
+        if x_result or tiktok_result:
+            session = session_manager.update_session(session_id, status="social_posted")
         
         # 結果表示
         logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
@@ -437,14 +498,19 @@ def main():
         logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         
         # ショート情報を含めた結果表示
-        shorts_info_text = ""
-        if 'youtube_shorts_info.json' in str(session_dir):
-            youtube_shorts_info_file = session_dir / "youtube_shorts_info.json"
-            if youtube_shorts_info_file.exists():
-                shorts_data = load_json(str(youtube_shorts_info_file))
-                shorts_info_text = f"\n\nYouTubeショート動画:\n"
-                for i, short_info in enumerate(shorts_data, 1):
-                    shorts_info_text += f"  Part {i}: {short_info['url']}\n"
+                shorts_info_text = ""
+                youtube_shorts_info_file = session_dir / "youtube_shorts_info.json"
+                if youtube_shorts_info_file.exists():
+                        shorts_data = load_json(str(youtube_shorts_info_file))
+                        shorts_info_text = "\n\nYouTubeショート動画:\n"
+                        for i, short_info in enumerate(shorts_data, 1):
+                                shorts_info_text += f"  Part {i}: {short_info['url']}\n"
+
+                social_info_text = ""
+                if x_result:
+                        social_info_text += f"\n  X: {x_result.get('url')}"
+                if tiktok_result:
+                        social_info_text += f"\n  TikTok: {tiktok_result.get('share_url') or tiktok_result.get('video_id')}"
         
         print(f"""
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -453,7 +519,9 @@ def main():
 YouTube動画情報:
   タイトル: {video_title}
   URL: {result['url']}
-  公開設定: {result['privacy_status']}{shorts_info_text}
+    公開設定: {result['privacy_status']}{shorts_info_text}
+
+ソーシャル投稿:{social_info_text or '  (未投稿)'}
 
 ファイル:
   動画: {video_file}

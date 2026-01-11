@@ -46,6 +46,8 @@ output/sessions/YYYYMMDD_HHMMSS/music.mp3
         ↓
 [YouTubeアップロード] youtube_uploader.py
         ↓
+[X/TikTok投稿] social_poster.py
+        ↓
 output/sessions/YYYYMMDD_HHMMSS/
   ├── thumbnail.jpg
   ├── video.mp4
@@ -81,6 +83,7 @@ Music_news_airi/
 │   ├── thumbnail_generator.py  # サムネイル生成
 │   ├── video_generator.py   # 動画生成
 │   ├── youtube_uploader.py  # YouTubeアップロード
+│   ├── social_poster.py     # X/TikTok投稿
 │   │
 │   ├── # セッション管理
 │   ├── session_manager.py   # セッション管理

@@ -83,6 +83,7 @@ Music_news_airi/
 │   ├── thumbnail_generator.py  # サムネイル生成
 │   ├── video_generator.py      # 動画生成
 │   ├── youtube_uploader.py     # YouTubeアップロード
+│   ├── social_poster.py        # X/TikTok投稿
 │   │
 │   ├── # セッション管理
 │   ├── session_manager.py      # セッション管理
@@ -189,7 +190,18 @@ python scripts/part2_upload_video.py 20260110_HHMMSS
 #    - 30秒以上の動画は30秒ごとに分割
 #    - 30秒以下は1本のショート
 # 5. YouTubeショート一括アップロード（公開）
+# 6. X自動投稿（環境変数が設定されている場合）
+# 7. TikTok自動投稿（ショート動画を再利用、環境変数が設定されている場合）
 ```
+
+### X / TikTok 自動投稿の設定
+
+環境変数を設定すると Part 2 実行時に自動投稿が有効になります。
+
+- X: `X_CONSUMER_KEY`, `X_CONSUMER_SECRET`, `X_ACCESS_TOKEN`, `X_ACCESS_TOKEN_SECRET`
+- TikTok: `TIKTOK_ACCESS_TOKEN`, `TIKTOK_OPEN_ID`
+
+それぞれのキーは各プラットフォームの開発者ポータルで取得してください。認証情報は `.env` などで安全に管理してください。
 
 ### テスト機能
 

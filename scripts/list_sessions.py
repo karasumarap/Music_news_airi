@@ -65,6 +65,10 @@ def main():
                 print(f"\n   💡 次のステップ: python scripts/part2_upload_video.py {session.session_id}")
             elif session.status == "youtube_uploaded":
                 print(f"\n   ✅ 完了")
+            elif session.status == "shorts_uploaded":
+                print("\n   ✅ 完了 (ショート生成済み)")
+            elif session.status == "social_posted":
+                print("\n   ✅ 完了 (ソーシャル投稿済み)")
             
             print("\n" + "-" * 80)
         
