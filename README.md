@@ -119,6 +119,8 @@ Music_news_airi/
 
 ### 1. インストール
 
+#### ローカル環境の場合
+
 ```bash
 # リポジトリをクローン
 git clone https://github.com/yourusername/Music_news_airi.git
@@ -126,6 +128,22 @@ cd Music_news_airi
 
 # 依存パッケージをインストール
 pip install -r requirements.txt
+
+# 日本語フォント（字幕用）をインストール
+sudo apt-get update
+sudo apt-get install -y fonts-noto-cjk fonts-noto-cjk-extra
+```
+
+#### GitHub Codespacesの場合
+
+新しいCodespace起動時は自動的にセットアップが実行されます。
+認証情報の設定については [docs/09_codespace_setup.md](docs/09_codespace_setup.md) を参照してください。
+
+**重要**: YouTube認証情報は手動で配置が必要です:
+```bash
+# 1. ローカルから credentials/youtube_client_secret.json をコピー
+# 2. または以下のコマンドを実行して対話的にセットアップ
+bash scripts/setup_credentials.sh
 ```
 
 ### 2. Part 1: 歌詞生成まで

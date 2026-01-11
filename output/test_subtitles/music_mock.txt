@@ -1,0 +1,33 @@
+🎵 音楽ファイル（モック）
+
+実際に音楽を生成するには:
+1. pip install -r requirements.txt
+2. .env ファイルに SUNO_API_KEY を設定
+3. .env で MUSIC_GENERATION_ENABLED=true に設定
+
+タイトル: 
+スタイル: J-Pop, female vocals, kawaii, idol, uplifting, hopeful, bright, energetic, contemporary
+
+歌詞:
+
+今日のニュース、お届けします
+
+朝の空気が冷たくて
+街は静かに目覚める
+新しいニュースが届く
+世界は回り続ける
+
+ニュースの時間だよ
+聞いてみよう今日の出来事
+ニュースの時間だよ
+知ろう世界の動き
+
+情報の海を泳いで
+真実を探していく
+変わりゆく世の中で
+大切なことを見つける
+
+ニュースの時間だよ
+聞いてみよう今日の出来事
+ニュースの時間だよ
+知ろう世界の動き

@@ -133,35 +133,143 @@ class VideoGenerator:
         **kwargs
     ) -> str:
         """
-        歌詞表示付き動画を生成（将来実装）
-        
-        現在は通常の動画生成と同じ動作
-        将来的には歌詞をオーバーレイ表示する機能を追加予定
+        歌詞表示付き動画を生成
         
         Args:
             audio_path: 音楽ファイルパス
             image_path: 画像ファイルパス
-            lyrics_path: 歌詞ファイルパス
+            lyrics_path: 歌詞ファイルパス（.txtまたは.srt）
             output_path: 出力動画パス
             **kwargs: その他のオプション
             
         Returns:
             str: 生成された動画のパス
         """
-        logger.info("📝 歌詞表示機能は将来実装予定です")
-        logger.info("📝 現在は通常の動画を生成します")
+        logger.info("📝 歌詞表示付き動画を生成します")
         
-        # TODO: 歌詞をオーバーレイ表示する機能を実装
-        # - 歌詞ファイルを解析
-        # - FFmpegのdrawtext フィルターで歌詞を表示
-        # - タイミングに合わせてテキストを切り替え
+        lyrics_path = Path(lyrics_path)
         
-        return self.generate(
-            audio_path=audio_path,
-            image_path=image_path,
-            output_path=output_path,
-            **kwargs
-        )
+        # 歌詞ファイルの形式を確認
+        if lyrics_path.suffix.lower() == '.srt':
+            # SRTファイルが存在する場合は字幕を焼き込み
+            return self.generate_with_subtitles(
+                audio_path=audio_path,
+                image_path=image_path,
+                subtitle_path=str(lyrics_path),
+                output_path=output_path,
+                **kwargs
+            )
+        else:
+            # テキストファイルの場合は通常の動画を生成
+            logger.info("📝 テキスト形式の歌詞ファイルです。字幕なしで生成します")
+            return self.generate(
+                audio_path=audio_path,
+                image_path=image_path,
+                output_path=output_path,
+                **kwargs
+            )
+    
+    def generate_with_subtitles(
+        self,
+        audio_path: str,
+        image_path: str,
+        subtitle_path: str,
+        output_path: str,
+        fps: int = 30,
+        video_codec: str = "libx264",
+        audio_codec: str = "aac",
+        audio_bitrate: str = "192k",
+        preset: str = "medium",
+        crf: int = 23
+    ) -> str:
+        """
+        字幕付き動画を生成（SRTまたはASS形式に対応）
+        
+        Args:
+            audio_path: 音楽ファイルパス
+            image_path: 画像ファイルパス
+            subtitle_path: 字幕ファイルパス（.srtまたは.ass）
+            output_path: 出力動画パス
+            fps: フレームレート
+            video_codec: 動画コーデック
+            audio_codec: 音声コーデック
+            audio_bitrate: 音声ビットレート
+            preset: エンコードプリセット
+            crf: 品質設定
+            
+        Returns:
+            str: 生成された動画のパス
+        """
+        audio_path = Path(audio_path)
+        image_path = Path(image_path)
+        subtitle_path = Path(subtitle_path)
+        output_path = Path(output_path)
+        
+        # ファイル存在確認
+        if not audio_path.exists():
+            raise FileNotFoundError(f"音楽ファイルが見つかりません: {audio_path}")
+        
+        if not image_path.exists():
+            raise FileNotFoundError(f"画像ファイルが見つかりません: {image_path}")
+        
+        if not subtitle_path.exists():
+            raise FileNotFoundError(f"字幕ファイルが見つかりません: {subtitle_path}")
+        
+        # 出力ディレクトリ作成
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        logger.info(f"🎬 字幕付き動画生成開始")
+        logger.info(f"   音楽: {audio_path.name}")
+        logger.info(f"   画像: {image_path.name}")
+        logger.info(f"   字幕: {subtitle_path.name}")
+        logger.info(f"   出力: {output_path.name}")
+        
+        # 字幕ファイルの形式を確認
+        subtitle_ext = subtitle_path.suffix.lower()
+        
+        # Windows/Linux互換性のためにパスを適切にエスケープ
+        subtitle_path_str = str(subtitle_path).replace('\\', '/').replace(':', '\\:')
+        
+        # FFmpegコマンドを構築
+        command = [
+            'ffmpeg',
+            '-y',  # 上書き確認なし
+            '-loop', '1',  # 画像をループ
+            '-i', str(image_path),  # 入力画像
+            '-i', str(audio_path),  # 入力音声
+            '-vf', f"ass='{subtitle_path_str}'" if subtitle_ext == '.ass' else f"subtitles='{subtitle_path_str}'",
+            '-c:v', video_codec,  # 動画コーデック
+            '-c:a', audio_codec,  # 音声コーデック
+            '-b:a', audio_bitrate,  # 音声ビットレート
+            '-preset', preset,  # エンコードプリセット
+            '-crf', str(crf),  # 品質
+            '-tune', 'stillimage',  # 静止画用最適化
+            '-shortest',  # 音声の長さに合わせる
+            '-pix_fmt', 'yuv420p',  # 互換性のあるピクセルフォーマット
+            '-r', str(fps),  # フレームレート
+            str(output_path)
+        ]
+        
+        logger.info(f"   字幕形式: {subtitle_ext.upper()}")
+        
+        try:
+            # FFmpegを実行
+            result = subprocess.run(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=True
+            )
+            
+            logger.info(f"✅ 字幕付き動画生成完了: {output_path}")
+            logger.info(f"   ファイルサイズ: {output_path.stat().st_size / 1024 / 1024:.2f} MB")
+            
+            return str(output_path)
+            
+        except subprocess.CalledProcessError as e:
+            logger.error(f"❌ FFmpegエラー: {e.stderr}")
+            raise RuntimeError(f"字幕付き動画生成に失敗しました: {e.stderr}")
     
     def get_video_info(self, video_path: str) -> dict:
         """

@@ -14,7 +14,8 @@ sys.path.insert(0, str(project_root))
 
 from src.session_manager import SessionManager, format_session_info
 from src.thumbnail_generator import generate_thumbnail
-from src.video_generator import generate_video
+from src.video_generator import generate_video, VideoGenerator
+from src.subtitle_generator import SubtitleGenerator
 from src.youtube_uploader import YouTubeUploader
 from src.utils import load_json, save_json
 
@@ -121,9 +122,62 @@ def main():
             logger.info("デフォルトサムネイルなしで続行します")
             thumbnail_file = None
         
-        # ステップ3: 動画生成
+        # ステップ3: ASS字幕生成
         logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-        logger.info("ステップ3: 動画生成")
+        logger.info("ステップ3: ASS字幕生成（リッチスタイル）")
+        logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        
+        try:
+            # 歌詞を読み込み
+            lyrics_file = session_dir / "lyrics.txt"
+            with open(lyrics_file, 'r', encoding='utf-8') as f:
+                lyrics = f.read()
+            
+            # 音声の長さを取得
+            video_gen = VideoGenerator()
+            duration = video_gen.get_audio_duration(str(music_file))
+            logger.info(f"🎵 音楽の長さ: {duration:.1f}秒")
+            
+            # ASS字幕を生成
+            subtitle_gen = SubtitleGenerator()
+            ass_file = session_dir / "subtitles.ass"
+            
+            subtitle_gen.generate_ass(
+                lyrics=lyrics,
+                output_path=str(ass_file),
+                duration=duration,
+                chars_per_second=12.0,
+                # リッチスタイル設定
+                font_name="Noto Sans CJK JP Bold",
+                font_size=56,
+                primary_color="&H00FFFFFF",      # 白
+                secondary_color="&H0000FFFF",    # 黄色（カラオケ用）
+                outline_color="&H00000000",      # 黒
+                back_color="&HA0000000",         # 半透明黒
+                outline=4.0,
+                shadow=2.5,
+                bold=True,
+                alignment=2,
+                margin_v=50,
+                fade_in=0.4,
+                fade_out=0.4
+            )
+            
+            logger.info(f"✅ ASS字幕生成完了: {ass_file.name}")
+            
+            # セッション更新
+            session = session_manager.update_session(
+                session_id,
+                subtitle_file="subtitles.ass"
+            )
+        except Exception as e:
+            logger.error(f"❌ 字幕生成エラー: {e}")
+            logger.info("字幕なしで続行します")
+            ass_file = None
+        
+        # ステップ4: 動画生成（ASS字幕付き）
+        logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        logger.info("ステップ4: 動画生成（ASS字幕付き）")
         logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         
         try:
@@ -133,13 +187,26 @@ def main():
                 logger.error("❌ サムネイルファイルが見つかりません")
                 sys.exit(1)
             
-            generate_video(
-                audio_path=str(music_file),
-                image_path=str(thumbnail_file),
-                output_path=str(video_file)
-            )
+            # ASS字幕がある場合は字幕付き動画を生成
+            if ass_file and ass_file.exists():
+                logger.info("📝 ASS字幕を埋め込んで動画を生成します")
+                video_gen.generate_with_subtitles(
+                    audio_path=str(music_file),
+                    image_path=str(thumbnail_file),
+                    subtitle_path=str(ass_file),
+                    output_path=str(video_file)
+                )
+                logger.info("✅ ASS字幕付き動画生成完了")
+            else:
+                logger.info("📝 字幕なしで動画を生成します")
+                generate_video(
+                    audio_path=str(music_file),
+                    image_path=str(thumbnail_file),
+                    output_path=str(video_file)
+                )
             
             logger.info(f"✅ 動画生成完了: {video_file.name}")
+            logger.info(f"   ファイルサイズ: {video_file.stat().st_size / 1024 / 1024:.2f} MB")
             
             # セッション更新
             session = session_manager.update_session(
@@ -151,9 +218,9 @@ def main():
             logger.error(f"❌ 動画生成エラー: {e}")
             sys.exit(1)
         
-        # ステップ4: YouTubeアップロード
+        # ステップ5: YouTubeアップロード
         logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-        logger.info("ステップ4: YouTubeアップロード（通常動画）")
+        logger.info("ステップ5: YouTubeアップロード（字幕付き動画）")
         logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         
         try:
@@ -172,10 +239,11 @@ def main():
             
             video_title = f"【音楽ニュース】{news_title}"
             
-            # 歌詞を読み込み
-            lyrics_file = session_dir / "lyrics.txt"
-            with open(lyrics_file, 'r', encoding='utf-8') as f:
-                lyrics = f.read()
+            # 歌詞を読み込み（すでに読み込み済みの場合はスキップ）
+            if 'lyrics' not in locals():
+                lyrics_file = session_dir / "lyrics.txt"
+                with open(lyrics_file, 'r', encoding='utf-8') as f:
+                    lyrics = f.read()
             
             # 4構造の情報を含めた説明文を作成
             fact_summary = structured_data['structure']['fact']['summary']
@@ -235,24 +303,18 @@ def main():
             logger.error(f"❌ YouTubeアップロードエラー: {e}", exc_info=True)
             sys.exit(1)
         
-        # ステップ5: YouTubeショート生成とアップロード
+        # ステップ6: YouTubeショート生成とアップロード
         logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-        logger.info("ステップ5: YouTubeショート生成＆アップロード")
+        logger.info("ステップ6: YouTubeショート生成＆アップロード")
         logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         
         try:
-            from src.video_generator import VideoGenerator
-            
             # ショートディレクトリを作成
             shorts_dir = session_dir / "shorts"
             shorts_dir.mkdir(exist_ok=True)
             
-            # VideoGeneratorを初期化
-            video_gen = VideoGenerator()
-            
-            # 音声の長さを確認
-            duration = video_gen.get_audio_duration(str(music_file))
-            logger.info(f"🎵 音楽の長さ: {duration:.1f}秒")
+            # 音声の長さを確認（すでに取得済み）
+            logger.info(f"🎵 音楽の長さ: {duration:.1f}秒（既に取得済み）")
             
             if duration > 30:
                 logger.info("📹 30秒以上のため、複数のショート動画を生成します")

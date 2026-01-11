@@ -242,6 +242,10 @@ class MusicGenerator:
         if output_dir is None:
             output_dir = self.config.OUTPUT_DIR
         
+        # ダミーのmp3ファイル（70秒の無音）を生成
+        mock_audio_file = output_dir / "music_dummy.mp3"
+        self._generate_dummy_audio(mock_audio_file, duration=70)
+        
         mock_file = output_dir / "music_mock.txt"
         with open(mock_file, "w", encoding="utf-8") as f:
             f.write("🎵 音楽ファイル（モック）\n\n")
@@ -257,11 +261,55 @@ class MusicGenerator:
         return {
             "success": True,
             "mock": True,
-            "music_file": str(mock_file),
+            "music_file": str(mock_audio_file),
             "title": prompt_params["title"],
             "style": prompt_params["style"],
-            "message": "モックモード: 実際の音楽は生成されていません",
+            "duration": 70,
+            "message": "モックモード: ダミー音声ファイルを生成しました",
         }
+    
+    def _generate_dummy_audio(self, output_path: Path, duration: int = 70) -> None:
+        """
+        ダミーの音声ファイルを生成（FFmpegで無音を生成）
+        
+        Args:
+            output_path: 出力ファイルパス
+            duration: 長さ（秒）
+        """
+        import subprocess
+        import shutil
+        
+        # FFmpegの存在確認
+        if not shutil.which('ffmpeg'):
+            logger.warning("⚠️ FFmpegが見つかりません。ダミー音声を生成できません。")
+            return
+        
+        logger.info(f"🎵 ダミー音声を生成中... (長さ: {duration}秒)")
+        
+        # FFmpegで無音のmp3を生成
+        command = [
+            'ffmpeg',
+            '-y',  # 上書き確認なし
+            '-f', 'lavfi',
+            '-i', f'anullsrc=r=44100:cl=stereo',  # 無音生成
+            '-t', str(duration),  # 長さ
+            '-c:a', 'libmp3lame',  # mp3エンコーダー
+            '-b:a', '192k',  # ビットレート
+            str(output_path)
+        ]
+        
+        try:
+            subprocess.run(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True
+            )
+            logger.info(f"✅ ダミー音声生成完了: {output_path.name}")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"❌ ダミー音声生成エラー: {e.stderr}")
+        except Exception as e:
+            logger.error(f"❌ エラー: {e}")
 
 
 # 便利関数
